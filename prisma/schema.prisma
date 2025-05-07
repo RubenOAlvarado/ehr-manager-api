@@ -1,0 +1,338 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ENUMERACIONES PARA MEJORAR LA INTEGRIDAD DE DATOS
+enum QuestionType {
+  TEXT
+  NUMBER
+  BOOLEAN
+  MULTIPLE_CHOICE
+  DATE
+  TIME
+  DATETIME
+  FILE
+  SCALE
+}
+
+enum ResponseDataType {
+  STRING
+  INTEGER
+  FLOAT
+  BOOLEAN
+  DATE
+  TIME
+  DATETIME
+  JSON
+  BLOB
+}
+
+enum SyncStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  RETRY_SCHEDULED
+}
+
+enum OperationType {
+  IMPORT_PATIENTS
+  EXPORT_RESPONSES
+  SYNC_EHR
+  UPDATE_MAPPINGS
+  GENERATE_REPORTS
+}
+
+enum ActionType {
+  CREATE
+  READ
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  EXPORT
+  IMPORT
+}
+
+model Language {
+  code      String   @id @db.VarChar(5)
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  questions Question[]
+  patients  Patient[]
+
+  @@map("languages")
+}
+
+model EhrProvider {
+  code       String   @id
+  name       String
+  baseUrl    String   @map("base_url")
+  authConfig Json     @default("{}") @map("auth_config")
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  ehrMappings      EhrMapping[]
+  EhrMappingsCache EhrMappingsCache[]
+  clients          ClientEhrProvider[]
+
+  @@map("ehr_providers")
+}
+
+// CLIENT ORGANIZATION STRUCTURE
+model Client {
+  id              String    @id @default(uuid())
+  name            String
+  externalId      String?   @map("external_id")
+  defaultLanguage String    @map("default_language")
+  metadata        Json      @default("{}")
+  isActive        Boolean   @default(true) @map("is_active")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  questionSets     QuestionSet[]
+  patients         Patient[]
+  bulkOperations   BulkOperation[]
+  EhrMappingsCache EhrMappingsCache[]
+  ehrProviders     ClientEhrProvider[]
+
+  @@map("clients")
+}
+
+model ClientEhrProvider {
+  id              String   @id @default(uuid())
+  clientId        String   @map("client_id")
+  ehrProviderCode String   @map("ehr_provider_code")
+  isDefault       Boolean  @default(false) @map("is_default")
+  credentials     Json?    @default("{}") @map("credentials")
+  settings        Json?    @default("{}") @map("settings")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  client      Client       @relation(fields: [clientId], references: [id])
+  ehrProvider EhrProvider  @relation(fields: [ehrProviderCode], references: [code])
+  syncLogs    EhrSyncLog[]
+
+  @@unique([clientId, ehrProviderCode])
+  @@index([clientId])
+  @@index([ehrProviderCode])
+  @@map("client_ehr_providers")
+}
+
+// QUESTIONNAIRE SYSTEM
+model QuestionSet {
+  id          String    @id @default(uuid())
+  clientId    String    @map("client_id")
+  name        String
+  description String?
+  version     Int       @default(1)
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  client    Client     @relation(fields: [clientId], references: [id])
+  questions Question[]
+
+  @@map("question_sets")
+}
+
+model BaseQuestion {
+  id               String           @id @default(uuid())
+  internalCode     String           @unique @map("internal_code")
+  questionType     QuestionType     @map("question_type")
+  responseDataType ResponseDataType @map("response_data_type")
+  validationRules  Json             @default("{}") @map("validation_rules")
+  metadata         Json             @default("{}")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  questions        Question[]
+  ehrMappings      EhrMapping[]
+  patientResponses PatientResponse[]
+  EhrMappingsCache EhrMappingsCache[]
+
+  @@index([internalCode], name: "idx_base_questions_code")
+  @@map("base_questions")
+}
+
+model Question {
+  id             String   @id @default(uuid())
+  baseQuestionId String   @map("base_question_id")
+  questionSetId  String   @map("question_set_id")
+  languageCode   String   @map("language_code")
+  questionText   String   @map("question_text")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  baseQuestion BaseQuestion @relation(fields: [baseQuestionId], references: [id])
+  questionSet  QuestionSet  @relation(fields: [questionSetId], references: [id])
+  language     Language     @relation(fields: [languageCode], references: [code])
+
+  @@unique([baseQuestionId, questionSetId, languageCode], name: "unique_question_translation")
+  @@index([questionSetId], name: "idx_questions_set")
+  @@index([languageCode], name: "idx_questions_language")
+  @@map("questions")
+}
+
+// EHR INTEGRATION LAYER
+model EhrMapping {
+  id                 String   @id @default(uuid())
+  baseQuestionId     String   @map("base_question_id")
+  ehrProviderCode    String   @map("ehr_provider_code")
+  ehrFieldPath       String   @map("ehr_field_path")
+  ehrFieldType       String   @map("ehr_field_type")
+  transformationRule String?  @map("transformation_rule")
+  ehrEndpoint        String   @map("ehr_endpoint")
+  isActive           Boolean  @default(true) @map("is_active")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  baseQuestion BaseQuestion @relation(fields: [baseQuestionId], references: [id])
+  ehrProvider  EhrProvider  @relation(fields: [ehrProviderCode], references: [code])
+
+  @@unique([baseQuestionId, ehrProviderCode], name: "unique_question_ehr_mapping")
+  @@index([ehrProviderCode], name: "idx_ehr_mappings_provider")
+  @@index([isActive], name: "idx_ehr_mappings_active")
+  @@map("ehr_mappings")
+}
+
+// PATIENT DATA STORAGE
+model Patient {
+  id                String    @id @default(uuid())
+  clientId          String    @map("client_id")
+  externalId        String?   @map("external_id")
+  basicInfo         Json      @default("{}") @map("basic_info")
+  preferredLanguage String?   @map("preferred_language")
+  isActive          Boolean   @default(true) @map("is_active")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  deletedAt         DateTime? @map("deleted_at")
+
+  client    Client            @relation(fields: [clientId], references: [id])
+  language  Language?         @relation(fields: [preferredLanguage], references: [code])
+  responses PatientResponse[]
+  syncLogs  EhrSyncLog[]
+
+  @@unique([clientId, externalId], name: "unique_client_patient")
+  @@index([clientId], name: "idx_patients_client")
+  @@index([externalId], name: "idx_patients_external_id")
+  @@index([isActive], name: "idx_patients_active")
+  @@map("patients")
+}
+
+model PatientResponse {
+  id             String   @id @default(uuid())
+  patientId      String   @map("patient_id")
+  baseQuestionId String   @map("base_question_id")
+  response       String
+  responseMeta   Json     @default("{}") @map("response_meta")
+  sessionId      String?  @map("session_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  patient      Patient      @relation(fields: [patientId], references: [id])
+  baseQuestion BaseQuestion @relation(fields: [baseQuestionId], references: [id])
+
+  @@unique([patientId, baseQuestionId, sessionId], name: "unique_patient_response")
+  @@index([patientId], name: "idx_patient_responses_patient")
+  @@index([baseQuestionId], name: "idx_patient_responses_question")
+  @@index([patientId, baseQuestionId], name: "idx_patient_responses_composite")
+  @@map("patient_responses")
+}
+
+// OPERATIONAL TABLES
+model EhrSyncLog {
+  id                  String     @id @default(uuid())
+  patientId           String     @map("patient_id")
+  clientEhrProviderId String     @map("client_ehr_provider_id")
+  syncStatus          SyncStatus @map("sync_status")
+  requestPayload      Json?      @map("request_payload")
+  responsePayload     Json?      @map("response_payload")
+  errorDetails        Json?      @map("error_details")
+  retryCount          Int        @default(0) @map("retry_count")
+  nextRetryAt         DateTime?  @map("next_retry_at")
+  createdAt           DateTime   @default(now()) @map("created_at")
+  updatedAt           DateTime   @updatedAt @map("updated_at")
+
+  patient           Patient           @relation(fields: [patientId], references: [id])
+  clientEhrProvider ClientEhrProvider @relation(fields: [clientEhrProviderId], references: [id])
+
+  @@index([patientId], name: "idx_ehr_sync_logs_patient")
+  @@index([syncStatus], name: "idx_ehr_sync_logs_status")
+  @@index([createdAt], name: "idx_ehr_sync_logs_created_at")
+  @@index([nextRetryAt], name: "idx_ehr_sync_logs_retry")
+  @@map("ehr_sync_logs")
+}
+
+model BulkOperation {
+  id             String        @id @default(uuid())
+  clientId       String        @map("client_id")
+  operationType  OperationType @map("operation_type")
+  status         SyncStatus    @default(PENDING)
+  parameters     Json          @default("{}") @map("parameters")
+  createdBy      String?       @map("created_by")
+  processedCount Int           @default(0) @map("processed_count")
+  totalCount     Int           @default(0) @map("total_count")
+  errorLog       String?       @map("error_log")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  completedAt    DateTime?     @map("completed_at")
+
+  client Client @relation(fields: [clientId], references: [id])
+
+  @@map("bulk_operations")
+}
+
+// SECURITY & MONITORING
+model AuditLog {
+  id          String     @id @default(uuid())
+  actionType  ActionType @map("action_type")
+  tableName   String?    @map("table_name")
+  recordId    String?    @map("record_id")
+  oldValues   Json?      @map("old_values")
+  newValues   Json?      @map("new_values")
+  performedBy String?    @map("performed_by")
+  performedAt DateTime   @default(now()) @map("performed_at")
+  ipAddress   String?    @map("ip_address")
+  userAgent   String?    @map("user_agent")
+
+  @@map("audit_logs")
+}
+
+// PERFORMANCE OPTIMIZATION
+model EhrMappingsCache {
+  id              String   @id @default(uuid())
+  clientId        String   @map("client_id")
+  ehrProviderCode String   @map("ehr_provider_code")
+  baseQuestionId  String   @map("base_question_id")
+  mappingData     Json     @map("mapping_data")
+  expiresAt       DateTime @map("expires_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  client       Client       @relation(fields: [clientId], references: [id])
+  ehrProvider  EhrProvider  @relation(fields: [ehrProviderCode], references: [code])
+  baseQuestion BaseQuestion @relation(fields: [baseQuestionId], references: [id])
+
+  @@unique([clientId, ehrProviderCode, baseQuestionId], name: "unique_mapping_cache")
+  @@index([expiresAt], name: "idx_mappings_cache_expiry")
+  @@map("ehr_mappings_cache")
+}
