@@ -22,6 +22,9 @@ export class ClientsService {
         deletedAt: null,
         isActive: true,
       },
+      include: {
+        ehrProviders: true,
+      },
     });
   }
 
