@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ResponseClientEhrProviderDto {
   @ApiProperty()
@@ -13,15 +13,15 @@ export class ResponseClientEhrProviderDto {
   @ApiProperty()
   isDefault: boolean;
 
-  @ApiProperty()
-  credentials: Record<string, any>;
+  @ApiPropertyOptional()
+  credentials?: Record<string, any>;
 
-  @ApiProperty()
-  settings: Record<string, any>;
+  @ApiPropertyOptional()
+  settings?: Record<string, any>;
 
-  @ApiProperty()
-  createdAt: Date;
+  @ApiPropertyOptional()
+  createdAt?: Date;
 
-  @ApiProperty()
-  updatedAt: Date;
+  @ApiPropertyOptional()
+  updatedAt?: Date;
 }

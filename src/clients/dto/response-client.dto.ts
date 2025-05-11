@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ResponseClientEhrProviderDto } from 'src/client-ehr-provider/dto/response-client-eht-provider.dto';
 
 export class ResponseClientDto {
   @ApiProperty()
@@ -11,10 +12,10 @@ export class ResponseClientDto {
   externalId?: string;
 
   @ApiProperty()
-  preferredEhr: string;
+  defaultLanguage: string;
 
   @ApiProperty()
-  defaultLanguage: string;
+  ehrProviders?: ResponseClientEhrProviderDto[];
 
   @ApiProperty()
   createdAt: Date;

@@ -1,7 +1,16 @@
-import { Controller, Get, Post, Body, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  UseGuards,
+  Put,
+  Param,
+} from '@nestjs/common';
 import { ClientsService } from './clients.service';
 import { CreateClientDto } from './dto/create-client.dto';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
   ApiBody,
   ApiCreatedResponse,
@@ -14,6 +23,8 @@ import {
 import { ResponseClientDto } from './dto/response-client.dto';
 import { Public } from 'src/shared/decorators/public.decorator';
 import { JwtAuthGuard } from 'src/auth/guards/jwt.auth.guard';
+import { UpdateClientDto } from './dto/update-client.dto';
+import { ClientIdParamDto } from 'src/shared/params/client-id.param.dto';
 
 @ApiTags('Clients')
 @Controller('clients')
@@ -46,5 +57,24 @@ export class ClientsController {
   @Get()
   findAll() {
     return this.clientsService.findAll();
+  }
+
+  @ApiOperation({ summary: 'Update a client by ID' })
+  @ApiOkResponse({
+    description: 'The client has been successfully updated.',
+    type: ResponseClientDto,
+  })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error.' })
+  @ApiNotFoundResponse({ description: 'Client not found.' })
+  @ApiBadRequestResponse({ description: 'Invalid data.' })
+  @ApiBody({ type: UpdateClientDto, description: 'The client to update.' })
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Put(':clientId')
+  update(
+    @Param() params: ClientIdParamDto,
+    @Body() updateClientDto: UpdateClientDto,
+  ) {
+    return this.clientsService.update(params, updateClientDto);
   }
 }

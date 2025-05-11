@@ -5,16 +5,14 @@ import {
 } from '@nestjs/common';
 import { CreateClientEhrProviderDto } from './dto/create-client-ehr-provider.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { ClientsService } from '../clients/clients.service';
 import { EhrProvidersService } from 'src/ehr-providers/ehr-providers.service';
 import { ClientIdParamDto } from 'src/shared/params/client-id.param.dto';
-import { ClientEhrProvider } from '@prisma/client';
+import { UpdateClientEhrProviderDto } from './dto/update-client-ehr-provider.dto';
 
 @Injectable()
 export class ClientEhrProviderService {
   constructor(
     private prisma: PrismaService,
-    private clientsService: ClientsService,
     private providersService: EhrProvidersService,
   ) {}
 
@@ -22,24 +20,38 @@ export class ClientEhrProviderService {
     { clientId }: ClientIdParamDto,
     createClientEhrProviderDto: CreateClientEhrProviderDto[],
   ) {
-    await this.validateClient(clientId);
-
     const existingProvidersMap = await this.getExistingProvidersMap(clientId);
 
-    const results: ClientEhrProvider[] = [];
     for (const providerDto of createClientEhrProviderDto) {
       await this.validateProvider(providerDto.ehrProviderCode);
 
-      const processedProvider = await this.processProvider(
-        clientId,
-        providerDto,
-        existingProvidersMap,
-      );
-
-      results.push(processedProvider);
+      await this.processProvider(clientId, providerDto, existingProvidersMap);
     }
+  }
 
-    return results;
+  async updateClientEhrProviders(
+    { clientId }: ClientIdParamDto,
+    updateClientEhrProviderDto: UpdateClientEhrProviderDto[],
+  ) {
+    const existingProvidersMap = await this.getExistingProvidersMap(clientId);
+    const incomingProvidersCode = updateClientEhrProviderDto.map(
+      (provider) => provider.ehrProviderCode ?? '',
+    );
+    await this.deleteMissingProviders(
+      clientId,
+      existingProvidersMap,
+      incomingProvidersCode,
+    );
+    for (const providerDto of updateClientEhrProviderDto) {
+      if (providerDto.ehrProviderCode) {
+        await this.validateProvider(providerDto.ehrProviderCode);
+        await this.processProvider(
+          clientId,
+          providerDto as CreateClientEhrProviderDto,
+          existingProvidersMap,
+        );
+      }
+    }
   }
 
   async findAll({ clientId }: ClientIdParamDto) {
@@ -58,22 +70,16 @@ export class ClientEhrProviderService {
     return providers;
   }
 
-  findOne(id: string) {
+  findOne(id: string, withRelations: boolean = false) {
     return this.prisma.clientEhrProvider.findUnique({
       where: { id },
-      include: {
-        client: true,
-        ehrProvider: true,
-      },
+      include: withRelations
+        ? {
+            client: true,
+            ehrProvider: true,
+          }
+        : undefined,
     });
-  }
-
-  private async validateClient(clientId: string) {
-    const client = await this.clientsService.findOne(clientId);
-    if (!client) {
-      throw new BadRequestException('Client not found');
-    }
-    return !!client;
   }
 
   private async validateProvider(providerId: string) {
@@ -142,6 +148,38 @@ export class ClientEhrProviderService {
         clientId,
         ...providerDto,
       },
+    });
+  }
+
+  private async deleteMissingProviders(
+    clientId: string,
+    existingProvidersMap: Map<string, string>,
+    incomingProvidersCode: string[],
+  ) {
+    if (!incomingProvidersCode) return;
+
+    const codesToDelete = [...existingProvidersMap.keys()].filter(
+      (key) => !incomingProvidersCode.includes(key),
+    );
+    if (codesToDelete.length === 0) return;
+    const toDelete = codesToDelete.map(
+      (code) => existingProvidersMap.get(code)!,
+    );
+    await this.prisma.$transaction(async (prisma) => {
+      await prisma.ehrSyncLog.deleteMany({
+        where: {
+          clientEhrProviderId: {
+            in: toDelete,
+          },
+        },
+      });
+      await prisma.clientEhrProvider.deleteMany({
+        where: {
+          id: {
+            in: toDelete,
+          },
+        },
+      });
     });
   }
 }

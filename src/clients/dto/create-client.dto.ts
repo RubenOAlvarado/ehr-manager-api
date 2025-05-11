@@ -1,10 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
-  IsAlphanumeric,
+  IsArray,
   IsNotEmpty,
   IsOptional,
   IsString,
+  ValidateNested,
 } from 'class-validator';
+import { CreateClientEhrProviderDto } from 'src/client-ehr-provider/dto/create-client-ehr-provider.dto';
 
 export class CreateClientDto {
   @ApiProperty({
@@ -28,17 +31,6 @@ export class CreateClientDto {
   externalId?: string;
 
   @ApiProperty({
-    description: 'Preferred EHR system for the client',
-    example: 'Epic',
-    required: true,
-    type: String,
-  })
-  @IsNotEmpty({ message: 'Preferred EHR is required' })
-  @IsString({ message: 'Preferred EHR must be a string' })
-  @IsAlphanumeric()
-  preferredEhr: string;
-
-  @ApiProperty({
     description: 'Default language for the client',
     example: 'en',
     required: false,
@@ -47,4 +39,26 @@ export class CreateClientDto {
   })
   @IsString({ message: 'Default language must be a string' })
   defaultLanguage: string = 'en';
+
+  @ApiPropertyOptional({
+    description: 'List of EHR providers associated with the client',
+    type: CreateClientEhrProviderDto,
+    required: false,
+    isArray: true,
+    example: [
+      {
+        ehrProviderCode: 'Atlas',
+        isDefault: true,
+      },
+      {
+        ehrProviderCode: 'General Ehr',
+        isDefault: false,
+      },
+    ],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateClientEhrProviderDto)
+  ehrProviders?: CreateClientEhrProviderDto[];
 }

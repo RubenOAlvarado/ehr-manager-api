@@ -3,7 +3,6 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
   IsBoolean,
-  IsDefined,
   IsNotEmpty,
   IsObject,
   IsOptional,
@@ -21,7 +20,7 @@ export class CreateClientEhrProviderDto {
   @IsString({ message: 'EHR Provider code must be a string' })
   ehrProviderCode: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'Indicates if the provider is the default for the client',
     example: 'true',
     type: Boolean,
@@ -29,7 +28,6 @@ export class CreateClientEhrProviderDto {
     default: 'false',
     enum: ['true', 'false'],
   })
-  @IsDefined()
   @Transform(({ value }) =>
     value === 'true' ? true : value === 'false' ? false : value,
   )
@@ -47,17 +45,17 @@ export class CreateClientEhrProviderDto {
   })
   @IsOptional()
   @IsObject()
-  credentials: Record<string, any>;
+  credentials?: Record<string, any>;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'The settings for the provider',
     example: {
       key: 'value',
     },
     type: Object,
-    required: true,
+    required: false,
   })
   @IsOptional()
   @IsObject()
-  settings: Record<string, any>;
+  settings?: Record<string, any>;
 }
