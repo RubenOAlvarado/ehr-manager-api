@@ -1,18 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class CreateQuestionSetDto {
-  @ApiProperty({
-    description: 'The UUID of the client',
-    example: '3-a456-426614174000',
-    required: true,
-    type: String,
-    format: 'uuid',
-  })
-  @IsUUID()
-  @IsNotEmpty()
-  clientId: string;
-
   @ApiProperty({
     description: 'The name of the question set',
     example: 'Question Set 1',
