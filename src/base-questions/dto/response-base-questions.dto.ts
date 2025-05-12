@@ -15,6 +15,12 @@ export class ResponseBaseQuestionsDto {
   responseDataType: ResponseDataType;
 
   @ApiProperty()
+  validationRules?: Record<string, any>;
+
+  @ApiProperty()
+  metadata?: Record<string, any>;
+
+  @ApiProperty()
   createdAt: Date;
 
   @ApiProperty()

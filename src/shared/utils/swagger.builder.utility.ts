@@ -19,6 +19,7 @@ export const buildSwaggerModule = async (
     .setTitle(OPEN_API_TITLE)
     .setDescription(OPEN_API_DESCRIPTION)
     .setVersion(OPEN_API_VERSION)
+    .addBearerAuth()
     .build();
 
   const document = SwaggerModule.createDocument(

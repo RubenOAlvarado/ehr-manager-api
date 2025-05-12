@@ -1,5 +1,11 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsAlphanumeric, IsEnum, IsNotEmpty } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsObject,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 import { QuestionType, ResponseDataType } from '@prisma/client';
 
 export class CreateBaseQuestionDto {
@@ -10,7 +16,7 @@ export class CreateBaseQuestionDto {
     type: String,
   })
   @IsNotEmpty({ message: 'Internal code is required' })
-  @IsAlphanumeric()
+  @IsString()
   internalCode: string;
 
   @ApiProperty({
@@ -37,4 +43,27 @@ export class CreateBaseQuestionDto {
   @IsNotEmpty({ message: 'Response data type is required' })
   @IsEnum(ResponseDataType)
   responseDataType: ResponseDataType;
+
+  @ApiPropertyOptional({
+    description: 'Validation rules for the question',
+    example: {
+      required: 'true',
+    },
+    type: Object,
+    required: false,
+  })
+  @IsOptional()
+  @IsObject()
+  validationRules?: Record<string, any>;
+
+  @ApiPropertyOptional({
+    description: 'The question metadata',
+    example: {
+      label: 'Question 1',
+      description: 'This is a question',
+    },
+    required: false,
+    type: String,
+  })
+  metadata?: Record<string, any>;
 }
