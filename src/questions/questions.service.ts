@@ -1,12 +1,6 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import { CreateQuestionDto } from './dto/create-question.dto';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { BaseQuestionsService } from 'src/base-questions/base-questions.service';
-import { QuestionSetsService } from 'src/question-sets/question-sets.service';
 import { GetQuestionsParamsDto } from './dto/getQuestions.params.dto';
 import { QuestionSetIdQueryDto } from './dto/questionSetId.query.dto';
 
@@ -15,20 +9,7 @@ export class QuestionsService {
   constructor(
     private prisma: PrismaService,
     private baseQuestionService: BaseQuestionsService,
-    private questionSetService: QuestionSetsService,
   ) {}
-
-  async create(createQuestionDto: CreateQuestionDto) {
-    const [validQuestionSet, validBaseQuestion] = await Promise.all([
-      this.validateQuestionSet(createQuestionDto.questionSetId),
-      this.validateBaseQuestion(createQuestionDto.baseQuestionId),
-    ]);
-    if (validBaseQuestion && validQuestionSet) {
-      return this.prisma.question.create({
-        data: createQuestionDto,
-      });
-    }
-  }
 
   async getQuestionsByClientIdAndLanguageCode(
     { clientId, languageCode }: GetQuestionsParamsDto,
@@ -67,21 +48,5 @@ export class QuestionsService {
       );
     }
     return questions;
-  }
-
-  private async validateQuestionSet(questionSetId: string) {
-    const questionSet = await this.questionSetService.findOne(questionSetId);
-    if (!questionSet) {
-      throw new BadRequestException('Invalid question set ID');
-    }
-    return true;
-  }
-
-  private async validateBaseQuestion(baseQuestionId: string) {
-    const baseQuestion = await this.baseQuestionService.findOne(baseQuestionId);
-    if (!baseQuestion) {
-      throw new BadRequestException('Invalid base question ID');
-    }
-    return true;
   }
 }

@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ResponseQuestionDto } from 'src/questions/dto/response-question.dto';
 
 export class ResponseQuestionSetDto {
   @ApiProperty()
@@ -12,6 +13,9 @@ export class ResponseQuestionSetDto {
 
   @ApiPropertyOptional()
   description?: string;
+
+  @ApiPropertyOptional()
+  questions?: ResponseQuestionDto[];
 
   @ApiProperty()
   createdAt: Date;
