@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Body, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  UseGuards,
+  Put,
+  Param,
+} from '@nestjs/common';
 import { EhrProvidersService } from './ehr-providers.service';
 import { CreateEhrProviderDto } from './dto/create-ehr-provider.dto';
 import {
@@ -12,6 +20,7 @@ import {
 } from '@nestjs/swagger';
 import { EhrProviderResponseDto } from './dto/response-ehr-provider.dtos';
 import { JwtAuthGuard } from 'src/auth/guards/jwt.auth.guard';
+import { ProviderCodeParamDto } from './dto/provider-code.param.dto';
 
 @ApiTags('EHR Providers')
 @ApiBearerAuth()
@@ -47,5 +56,25 @@ export class EhrProvidersController {
   @Get()
   findAll() {
     return this.ehrProvidersService.findAll();
+  }
+
+  @ApiOperation({ summary: 'Update an EHR Provider' })
+  @ApiCreatedResponse({
+    description: 'The provider has been successfully updated.',
+    type: EhrProviderResponseDto,
+  })
+  @ApiInternalServerErrorResponse({ description: 'Internal server error.' })
+  @ApiNotFoundResponse({ description: 'Provider not found.' })
+  @ApiBody({
+    type: CreateEhrProviderDto,
+    description: 'The provider data to update.',
+  })
+  @UseGuards(JwtAuthGuard)
+  @Put(':code')
+  update(
+    @Param() param: ProviderCodeParamDto,
+    @Body() updateEhrProviderDto: CreateEhrProviderDto,
+  ) {
+    return this.ehrProvidersService.update(param, updateEhrProviderDto);
   }
 }

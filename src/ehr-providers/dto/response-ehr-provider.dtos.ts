@@ -14,6 +14,9 @@ export class EhrProviderResponseDto {
   authConfig?: Record<string, any>;
 
   @ApiProperty()
+  isActive: boolean;
+
+  @ApiProperty()
   createdAt: Date;
 
   @ApiProperty()

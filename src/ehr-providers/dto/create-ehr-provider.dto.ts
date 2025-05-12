@@ -12,7 +12,7 @@ import {
 export class CreateEhrProviderDto {
   @ApiProperty({
     description: 'Providers code',
-    example: '1234567890',
+    example: 'ALPHA',
     type: String,
     required: true,
   })
